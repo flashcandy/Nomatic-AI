@@ -145,6 +145,10 @@ fun KnowledgeVaultScreen(
         }
     }
 
+    val groupedByFolder = remember(filteredNotes) {
+        filteredNotes.groupBy { (it.category ?: "Notes").ifBlank { "Notes" } }
+    }
+
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
@@ -214,68 +218,160 @@ fun KnowledgeVaultScreen(
                                 .testTag("vault_search_input")
                         )
 
-                        // Segmented View Mode Toggle
+                        // Segmented View Mode Toggle: GRID, LIST, FOLDERS
                         Surface(
                             shape = RoundedCornerShape(10.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                         ) {
                             Row(modifier = Modifier.padding(2.dp)) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (viewMode == VaultViewMode.GRID) NomaticRed.copy(alpha = 0.2f) else Color.Transparent,
-                                    modifier = Modifier.clickable { viewMode = VaultViewMode.GRID }
-                                ) {
-                                    Text(
-                                        text = "Grid",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (viewMode == VaultViewMode.GRID) NomaticRed else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
-                                    )
-                                }
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (viewMode == VaultViewMode.LIST) NomaticRed.copy(alpha = 0.2f) else Color.Transparent,
-                                    modifier = Modifier.clickable { viewMode = VaultViewMode.LIST }
-                                ) {
-                                    Text(
-                                        text = "List",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (viewMode == VaultViewMode.LIST) NomaticRed else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
-                                    )
+                                VaultViewMode.entries.forEach { mode ->
+                                    val isSelected = viewMode == mode
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) NomaticRed.copy(alpha = 0.2f) else Color.Transparent,
+                                        modifier = Modifier.clickable { viewMode = mode }
+                                    ) {
+                                        Text(
+                                            text = mode.name,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isSelected) NomaticRed else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // Segmented Category Filter Bar & AI Actions
+                    // Action Toolbar: AI Synthesize + Prompts Library
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            items(VAULT_CATEGORIES) { cat ->
-                                FilterChip(
-                                    selected = selectedCategory == cat,
-                                    onClick = { selectedCategory = cat },
-                                    label = { Text(cat, style = MaterialTheme.typography.labelMedium) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    isSynthesizeMode = !isSynthesizeMode
+                                    if (!isSynthesizeMode) selectedNoteIds = emptySet()
+                                },
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (isSynthesizeMode) NomaticEmerald.copy(alpha = 0.15f) else Color.Transparent
+                                ),
+                                border = BorderStroke(1.dp, if (isSynthesizeMode) NomaticEmerald else MaterialTheme.colorScheme.outline),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = if (isSynthesizeMode) NomaticEmerald else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isSynthesizeMode) "Synthesizing (${selectedNoteIds.size})" else "+ AI SYNTHESIZE",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSynthesizeMode) NomaticEmerald else MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                        }
 
-                        Spacer(modifier = Modifier.width(8.dp))
-                        OutlinedButton(
-                            onClick = onOpenPromptLibrary,
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            OutlinedButton(
+                                onClick = onOpenPromptLibrary,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.FolderSpecial, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("PROMPTS", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    // Category Filter Pills Row
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(VAULT_CATEGORIES) { cat ->
+                            FilterChip(
+                                selected = selectedCategory == cat,
+                                onClick = { selectedCategory = cat },
+                                label = { Text(cat, style = MaterialTheme.typography.labelMedium) }
+                            )
+                        }
+                    }
+
+                    // Multi-Select AI Synthesizer Active Bar
+                    AnimatedVisibility(visible = isSynthesizeMode) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            border = BorderStroke(1.dp, NomaticEmerald),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Prompts", style = MaterialTheme.typography.labelSmall)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Multi-Select AI Synthesizer",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NomaticEmerald
+                                    )
+                                    Text(
+                                        text = "${selectedNoteIds.size} notes selected to consolidate",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = {
+                                            if (selectedNoteIds.isNotEmpty()) {
+                                                val selectedNotesList = notes.filter { selectedNoteIds.contains(it.id) }
+                                                val combinedContent = selectedNotesList.joinToString("\n\n---\n\n") {
+                                                    "### ${it.title} (${it.category})\n${it.content}"
+                                                }
+                                                val synthTitle = "AI Synthesis: ${selectedNotesList.firstOrNull()?.title ?: "Multi-Note"}"
+                                                val synthContent = "# $synthTitle\n\n## Consolidated Summary\n$combinedContent"
+                                                onSaveNote(
+                                                    UUID.randomUUID().toString(),
+                                                    synthTitle,
+                                                    synthContent,
+                                                    "AI responses",
+                                                    "synthesized,ai"
+                                                )
+                                                onShowStatus("Synthesized ${selectedNoteIds.size} notes into new Vault entry!")
+                                                isSynthesizeMode = false
+                                                selectedNoteIds = emptySet()
+                                            } else {
+                                                onShowStatus("Select at least 1 note to synthesize")
+                                            }
+                                        },
+                                        enabled = selectedNoteIds.isNotEmpty(),
+                                        colors = ButtonDefaults.buttonColors(containerColor = NomaticEmerald)
+                                    ) {
+                                        Text("Synthesize", style = MaterialTheme.typography.labelMedium)
+                                    }
+
+                                    TextButton(
+                                        onClick = {
+                                            isSynthesizeMode = false
+                                            selectedNoteIds = emptySet()
+                                        }
+                                    ) {
+                                        Text("Cancel", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -397,7 +493,7 @@ fun KnowledgeVaultScreen(
                     }
                 }
 
-                VaultViewMode.LIST, VaultViewMode.FOLDERS -> {
+                VaultViewMode.LIST -> {
                     items(filteredNotes, key = { it.id }) { note ->
                         VaultCardItem(
                             note = note,
@@ -422,6 +518,112 @@ fun KnowledgeVaultScreen(
                                 context.startActivity(Intent.createChooser(intent, "Share Note"))
                             }
                         )
+                    }
+                }
+
+                VaultViewMode.FOLDERS -> {
+                    groupedByFolder.forEach { (categoryName, categoryNotes) ->
+                        item(key = "folder_$categoryName") {
+                            var isFolderExpanded by remember { mutableStateOf(true) }
+
+                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { isFolderExpanded = !isFolderExpanded }
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = NomaticAmber.copy(alpha = 0.2f),
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.FolderSpecial,
+                                                        contentDescription = null,
+                                                        tint = NomaticAmber,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                text = categoryName.uppercase(),
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = NomaticRed.copy(alpha = 0.15f)
+                                            ) {
+                                                Text(
+                                                    text = "${categoryNotes.size} ITEMS",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = NomaticRed,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                AnimatedVisibility(visible = isFolderExpanded) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp, start = 12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        categoryNotes.forEach { note ->
+                                            VaultCardItem(
+                                                note = note,
+                                                isSynthesizeMode = isSynthesizeMode,
+                                                isSelected = selectedNoteIds.contains(note.id),
+                                                onToggleSelect = {
+                                                    selectedNoteIds = if (selectedNoteIds.contains(note.id)) selectedNoteIds - note.id else selectedNoteIds + note.id
+                                                },
+                                                onClick = { editingNote = note },
+                                                onTogglePin = { onTogglePin(note) },
+                                                onDelete = { onDeleteNote(note.id) },
+                                                onCopy = {
+                                                    copyTextToClipboard(context, note.content)
+                                                    onShowStatus("Copied '${note.title}'")
+                                                },
+                                                onShare = {
+                                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = "text/plain"
+                                                        putExtra(Intent.EXTRA_SUBJECT, note.title)
+                                                        putExtra(Intent.EXTRA_TEXT, "${note.title}\n\n${note.content}")
+                                                    }
+                                                    context.startActivity(Intent.createChooser(intent, "Share Note"))
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

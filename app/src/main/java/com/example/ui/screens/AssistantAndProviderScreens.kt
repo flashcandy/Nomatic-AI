@@ -364,28 +364,77 @@ fun AssistantScreen(
 
             if (isStreaming) {
                 item {
-                    NomaticCard(accentBorder = true) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TelemetryPill(
-                                label = "Streaming response...",
-                                color = NomaticEmerald
+                    val estimatedTokens = remember(streamingPartialText) {
+                        if (streamingPartialText.isBlank()) 0
+                        else streamingPartialText.trim().split("\\s+".toRegex()).size
+                    }
+                    val providerBadgeText = streamingProviderBadge ?: currentProvider.uppercase()
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.5.dp, NomaticRed),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "STREAMING • ${providerBadgeText.uppercase()}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NomaticRed
+                                )
+                                TextButton(
+                                    onClick = onCancelStream,
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(Icons.Default.Stop, contentDescription = "Stop", tint = NomaticRed, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("STOP", style = MaterialTheme.typography.labelSmall, color = NomaticRed, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Synthesizing response...",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
-                            IconButton(onClick = onCancelStream, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Default.Stop, contentDescription = "Stop", tint = NomaticRed, modifier = Modifier.size(18.dp))
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(Icons.Default.Bolt, contentDescription = null, tint = NomaticAmber, modifier = Modifier.size(14.dp))
+                                    Text(
+                                        text = "Synthesizing: ~$estimatedTokens tokens generated",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+                            MarkdownMessageContent(
+                                content = streamingPartialText.ifBlank { "Thinking..." },
+                                onCopyCode = { code ->
+                                    copyToClipboard(context, code)
+                                    onShowStatus("Code block copied")
+                                }
+                            )
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        MarkdownMessageContent(
-                            content = streamingPartialText.ifBlank { "Thinking..." },
-                            onCopyCode = { code ->
-                                copyToClipboard(context, code)
-                                onShowStatus("Code block copied")
-                            }
-                        )
                     }
                 }
             }
@@ -428,13 +477,82 @@ fun AssistantScreen(
                 .navigationBarsPadding()
                 .imePadding()
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // In-Chat Model Switcher Pill Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, top = 6.dp, end = 12.dp, bottom = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    var showModelDropdown by remember { mutableStateOf(false) }
+
+                    Box {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                            modifier = Modifier.clickable { showModelDropdown = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(Icons.Default.Bolt, contentDescription = null, tint = NomaticEmerald, modifier = Modifier.size(14.dp))
+                                Text(
+                                    text = "$currentModel ∨",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = showModelDropdown,
+                            onDismissRequest = { showModelDropdown = false }
+                        ) {
+                            availableModels.forEach { model ->
+                                DropdownMenuItem(
+                                    text = { Text(model.displayName) },
+                                    leadingIcon = {
+                                        if (model.id == currentModel) {
+                                            Icon(Icons.Default.Check, contentDescription = null, tint = NomaticEmerald, modifier = Modifier.size(16.dp))
+                                        }
+                                    },
+                                    onClick = {
+                                        onSelectProviderModel(model.providerId, model.id)
+                                        showModelDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = NomaticEmerald.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, NomaticEmerald.copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = "⇄ ${currentProvider.uppercase()}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = NomaticEmerald,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                 IconButton(
                     onClick = { filePicker.launch(arrayOf("application/pdf", "text/*", "image/*")) },
                     modifier = Modifier.testTag("assistant_attach_button")
@@ -479,6 +597,7 @@ fun AssistantScreen(
                 }
             }
         }
+    }
     }
 
     // Rename Dialog
