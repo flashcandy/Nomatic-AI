@@ -1,0 +1,6 @@
+{
+  "name": "Nomatic AI",
+  "description": "Your Personal AI Workspace — privacy-first multi-provider AI assistant, mini browser, knowledge vault, developer utilities, document & YouTube intelligence, and productivity suite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Nomatic AI</string>
+    <string name="app_tagline">Your Personal AI Workspace</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_assistant">Assistant</string>
+    <string name="nav_browser">Browser</string>
+    <string name="nav_vault">Vault</string>
+    <string name="nav_tools">Tools</string>
+    <string name="privacy_notice_keystore">Keys are encrypted with AES-256-GCM using Android Keystore and stored in private internal storage. Note: Local encryption cannot fully protect keys on rooted or compromised devices.</string>
+</resources>

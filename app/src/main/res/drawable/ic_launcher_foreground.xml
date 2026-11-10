@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer geometric technical frame -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M33,30h9v48h-9zM66,30h9v48h-9zM42,36l24,30v12l-24,-30z" />
+    <!-- Nothing OS signature red telemetry accent dot -->
+    <path
+        android:fillColor="#FFD71921"
+        android:pathData="M70.5,24m-5.5,0a5.5,5.5 0,1 1,11 0a5.5,5.5 0,1 1,-11 0" />
+</vector>
